@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 import os
 import sys
@@ -81,31 +83,41 @@ def load_mrc(filename, maxz=-1):
     return nx, ny, nz, map_slice
 
 
+def from_root(path):
+    return os.path.join(data_root, path)
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument('data_root', type=str)
-    parser.add_argument('--nr_valid', type=int, defult=6048)
+    parser.add_argument('star_file', type=str)
+    parser.add_argument('--nr_valid', type=int, default=6048)
+    parser.add_argument('--output', type=str, default=None)
     args = parser.parse_args()
 
+    data_root = args.data_root
     print('Generating tensors from the RELION STAR file...')
-    dataset = load_star(args.data_root + '/combined_features_normalized.star')['normalized_features']
+    dataset = load_star(args.star_file)['normalized_features']
     nr_entries = len(dataset['rlnClassScore'])
     fn_subimage = dataset['rlnSubImageStack'][0]
 
     nr_train = nr_entries - args.nr_valid
     nr_valid = args.nr_valid
+    assert(nr_train > 0)
+    assert(nr_valid > 0)
 
-    nx, ny, nz, testsubimage = load_mrc(fn_subimage)
+    nx, ny, nz, testsubimage = load_mrc(from_root(fn_subimage))
 
     my_x_train = np.zeros(shape=(nr_train * nz, 1, nx, ny), dtype=np.single)
     my_x_valid = np.zeros(shape=(nr_valid * nz, 1, nx, ny), dtype=np.single)
     for i, x in enumerate(dataset['rlnSubImageStack']):
         if i < nr_train + nr_valid:
-            if (i % 1000 == 0):
-                print(i)
-            nx, ny, nz, subimage = load_mrc(x)
+            if i % 500 == 0:
+                print(f"{int(float(i) / (nr_train + nr_valid)*100)}%")
+
+            nx, ny, nz, subimage = load_mrc(from_root(x))
             for z in range(nz):
                 if i < nr_train:
                     my_x_train[i * nz + z, 0] = subimage[z, :, :]
@@ -121,7 +133,7 @@ if __name__ == "__main__":
         if i < nr_train + nr_valid:
             for z in range(nz):
                 for j, y in enumerate(stringarray):
-                    if (i < nr_train):
+                    if i < nr_train:
                         my_xp_train[i * nz + z, j] = float(y)
                     else:
                         my_xp_valid[(i - nr_train) * nz + z, j] = float(y)
@@ -133,7 +145,7 @@ if __name__ == "__main__":
         if i < nr_train + nr_valid:
             for z in range(nz):
                 score = float(x)
-                if (i < nr_train):
+                if i < nr_train:
                     my_y_train[i * nz + z, 0] = score
                 else:
                     my_y_test[(i - nr_train) * nz + z, 0] = score
@@ -147,14 +159,19 @@ if __name__ == "__main__":
     print('x_valid_shape= ', my_x_valid.shape)
     print('xp_valid_shape= ', my_xp_valid.shape)
 
-    torch.save({
-        "x": torch.Tensor(my_x_train),
-        "xp": torch.Tensor(my_xp_train),
-        "y": torch.Tensor(my_y_train)
-    }, args.data_root + '/dataset_train.pt')
+    output_root = args.data_root + '/dataset.pt'
 
-    torch.save({
-        "x": torch.Tensor(my_x_valid),
-        "xp": torch.Tensor(my_xp_valid),
-        "y": torch.Tensor(my_y_test)
-    }, args.data_root + '/dataset_valid.pt')
+    if args.output is not None:
+        output_root = args.output
+
+    torch.save(
+        {
+            "train_x": torch.Tensor(my_x_train),
+            "train_xp": torch.Tensor(my_xp_train),
+            "train_y": torch.Tensor(my_y_train),
+            "valid_x": torch.Tensor(my_x_valid),
+            "valid_xp": torch.Tensor(my_xp_valid),
+            "valid_y": torch.Tensor(my_y_test)
+        },
+        output_root
+    )

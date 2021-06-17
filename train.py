@@ -198,9 +198,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('data_root', type=str)
+    parser.add_argument('dataset', type=str)
     parser.add_argument('--output', type=str, default="train_out")
-    parser.add_argument('--gpu', type=str, default="-1")
+    parser.add_argument('--gpu', type=int, default="-1")
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
@@ -213,34 +213,36 @@ if __name__ == "__main__":
     print('DEVICE=', device)
     
     print('Loading previously saved tensors from their .pt files...')
-    x_train_var = torch.load(args.data_root + '/saved_x_train_var.pt')
-    xp_train_var = torch.load(args.data_root + '/saved_xp_train_var.pt')
-    y_train_var = torch.load(args.data_root + '/saved_y_train_var.pt')
-    x_test_var = torch.load(args.data_root + '/saved_x_test_var.pt')
-    xp_test_var = torch.load(args.data_root + '/saved_xp_test_var.pt')
-    y_test_var = torch.load(args.data_root + '/saved_y_test_var.pt')
-    nx = 64
-    ny = 64
-    nz = 8
+    ds = torch.load(args.dataset)
+    train_x = ds['train_x'].to(device)
+    train_xp = ds['train_xp'].to(device)
+    train_y = ds['train_y'].to(device)
+    valid_x = ds['valid_x'].to(device)
+    valid_xp = ds['valid_xp'].to(device)
+    valid_y = ds['valid_y'].to(device)
     
-    train_dataset = TensorDataset(x_train_var.to(device), y_train_var.to(device), xp_train_var.to(device))
-    valid_dataset = TensorDataset(x_test_var.to(device), y_test_var.to(device), xp_test_var.to(device))
+    train_dataset = TensorDataset(train_x, train_y, train_xp)
+    valid_dataset = TensorDataset(valid_x, valid_y, valid_xp)
     criterion = nn.MSELoss()
     
     print('P_DROPOUT= ', P_DROPOUT, ' LEARNING_RATE=', LEARNING_RATE, ' BATCH_SIZE= ', BATCH_SIZE, ' USE_IMAGES= ',
           USE_IMAGES, ' USE_FEATURES= ', USE_FEATURES, ' N_EPOCHS= ', N_EPOCHS)
+
     train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     valid_loader = DataLoader(dataset=valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
+
     model = Model(P_DROPOUT, USE_IMAGES, USE_FEATURES).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+
     print(model)
+
     model, optimizer, _ = training_loop(model, criterion, optimizer, train_loader, valid_loader, N_EPOCHS, device)
     
-    modelcpu = model.to('cpu')
-    modelcpu.eval()
-    imagetensor = torch.zeros([1, 1, 64, 64], dtype=torch.float)
-    featuretensor = torch.zeros([1, 24], dtype=torch.float)
-    traced_script_module = torch.jit.trace(modelcpu, (imagetensor, featuretensor))
+    model_cpu = model.to('cpu')
+    model_cpu.eval()
+    image_tensor = torch.zeros([1, 1, 64, 64], dtype=torch.float)
+    feature_tensor = torch.zeros([1, 24], dtype=torch.float)
+    traced_script_module = torch.jit.trace(model_cpu, (image_tensor, feature_tensor))
     
     output_fn = args.output
     if (USE_IMAGES):
