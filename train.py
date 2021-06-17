@@ -18,6 +18,7 @@ CNN_W = 16
 FEAT_EXT_W = 512
 USE_IMAGES = True
 USE_FEATURES = True
+ROT_AUGMENT = True
 
 MASK_FEATURE_IDX = np.array([11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
 
@@ -101,6 +102,20 @@ class Model(nn.Module):
             return self.classifier_features(y)
 
 
+def get_rot_mat(theta):
+    theta = torch.tensor(theta)
+    return torch.tensor([[torch.cos(theta), -torch.sin(theta), 0],
+                         [torch.sin(theta), torch.cos(theta), 0]])
+
+
+def random_rot(x, dtype=torch.float32):
+    theta = np.random.uniform() * 2 * np.pi
+    rot_mat = get_rot_mat(theta)[None, ...].type(dtype).repeat(x.shape[0], 1, 1)
+    grid = torch.nn.functional.affine_grid(rot_mat, x.size(), align_corners=False).type(dtype)
+    x = torch.nn.functional.grid_sample(x, grid, align_corners=False)
+    return x
+
+
 def train(train_loader, model, criterion, optimizer, device):
     '''
     Function for the training step of the training loop
@@ -110,6 +125,10 @@ def train(train_loader, model, criterion, optimizer, device):
     running_loss = 0
 
     for X, y_true, XP in train_loader:
+
+        if ROT_AUGMENT:
+            X = random_rot(X)
+
         optimizer.zero_grad()
 
         if MASK_FEATURE_IDX is not None:
@@ -200,7 +219,8 @@ if __name__ == "__main__":
 
     parser.add_argument('dataset', type=str)
     parser.add_argument('--output', type=str, default="train_out")
-    parser.add_argument('--gpu', type=int, default="-1")
+    parser.add_argument('--gpu', type=int, default=-1)
+    parser.add_argument('--random_seed', type=int, default=RANDOM_SEED)
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
@@ -208,8 +228,9 @@ if __name__ == "__main__":
     device = "cuda:0" if args.gpu >= 0 else "cpu"
     
     sys.stdout = Logger(args.output + 'std.out')
-    
-    torch.manual_seed(RANDOM_SEED)
+
+    np.random.seed(args.random_seed)
+    torch.manual_seed(args.random_seed)
     print('DEVICE=', device)
     
     print('Loading previously saved tensors from their .pt files...')

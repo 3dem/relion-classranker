@@ -120,9 +120,9 @@ if __name__ == "__main__":
             nx, ny, nz, subimage = load_mrc(from_root(x))
             for z in range(nz):
                 if i < nr_valid:
-                    my_x_valid[(i - nr_valid) * nz + z, 0] = subimage[z, :, :]
+                    my_x_valid[i * nz + z, 0] = subimage[z, :, :]
                 else:
-                    my_x_train[i * nz + z, 0] = subimage[z, :, :]
+                    my_x_train[(i - nr_valid) * nz + z, 0] = subimage[z, :, :]
         else:
             break
 
@@ -134,9 +134,9 @@ if __name__ == "__main__":
             for z in range(nz):
                 for j, y in enumerate(stringarray):
                     if i < nr_valid:
-                        my_xp_valid[(i - nr_valid) * nz + z, j] = float(y)
+                        my_xp_valid[i * nz + z, j] = float(y)
                     else:
-                        my_xp_train[i * nz + z, j] = float(y)
+                        my_xp_train[(i - nr_valid) * nz + z, j] = float(y)
 
     my_y_train = np.zeros(shape=(nr_train * nz, 1), dtype=np.single)
     my_y_test = np.zeros(shape=(nr_valid * nz, 1), dtype=np.single)
@@ -146,9 +146,9 @@ if __name__ == "__main__":
             for z in range(nz):
                 score = float(x)
                 if i < nr_valid:
-                    my_y_test[(i - nr_valid) * nz + z, 0] = score
+                    my_y_test[i * nz + z, 0] = score
                 else:
-                    my_y_train[i * nz + z, 0] = score
+                    my_y_train[(i - nr_valid) * nz + z, 0] = score
         else:
             break
 
