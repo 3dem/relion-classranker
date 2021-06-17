@@ -124,24 +124,24 @@ def train(train_loader, model, criterion, optimizer, device):
     model.train()
     running_loss = 0
 
-    for X, y_true, XP in train_loader:
+    for x, y_true, xp in train_loader:
 
         if ROT_AUGMENT:
-            X = random_rot(X)
+            x = random_rot(x)
 
         optimizer.zero_grad()
 
         if MASK_FEATURE_IDX is not None:
-            XP[:, MASK_FEATURE_IDX] = 0
+            xp[:, MASK_FEATURE_IDX] = 0
 
-        X = X.to(device)
-        XP = XP.to(device)
+        x = x.to(device)
+        xp = xp.to(device)
         y_true = y_true.to(device)
 
         # Forward pass
-        y_hat = model(X, XP)
+        y_hat = model(x, xp)
         loss = criterion(y_hat, y_true)
-        running_loss += loss.item() * X.size(0)
+        running_loss += loss.item() * x.size(0)
 
         # Backward pass
         loss.backward()
@@ -159,15 +159,15 @@ def validate(valid_loader, model, criterion, device):
     model.eval()
     running_loss = 0
 
-    for X, y_true, XP in valid_loader:
-        X = X.to(device)
-        XP = XP.to(device)
+    for x, y_true, xp in valid_loader:
+        x = x.to(device)
+        xp = xp.to(device)
         y_true = y_true.to(device)
 
         # Forward pass and record loss
-        y_hat = model(X, XP)
+        y_hat = model(x, xp)
         loss = criterion(y_hat, y_true)
-        running_loss += loss.item() * X.size(0)
+        running_loss += loss.item() * x.size(0)
 
     epoch_loss = running_loss / len(valid_loader.dataset)
 
@@ -180,18 +180,16 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
     '''
 
     # set objects for storing metrics
-    best_loss = 1e10
     train_losses = []
     valid_losses = []
 
     # Train model
     for epoch in range(0, epochs):
+        dt = time.time()
 
         # training
         model, optimizer, train_loss = train(train_loader, model, criterion, optimizer, device)
         train_losses.append(train_loss)
-
-        dt = time.time()
 
         # validation
         with torch.no_grad():
@@ -210,7 +208,7 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
     mean_late_loss = np.mean(np.array(valid_losses[-min(len(valid_losses) - 1, 10):]))
     print(f'Final valid loss: {mean_late_loss}')
 
-    return model, optimizer, (train_losses, valid_losses)
+    return model, (train_losses, valid_losses)
 
 
 if __name__ == "__main__":
@@ -257,7 +255,7 @@ if __name__ == "__main__":
 
     print(model)
 
-    model, optimizer, _ = training_loop(model, criterion, optimizer, train_loader, valid_loader, N_EPOCHS, device)
+    model, _ = training_loop(model, criterion, optimizer, train_loader, valid_loader, N_EPOCHS, device)
     
     model_cpu = model.to('cpu')
     model_cpu.eval()
