@@ -108,10 +108,10 @@ def get_rot_mat(theta):
                          [torch.sin(theta), torch.cos(theta), 0]])
 
 
-def random_rot(x, dtype=torch.float32):
+def random_rot(x):
     theta = np.random.uniform() * 2 * np.pi
-    rot_mat = get_rot_mat(theta)[None, ...].type(dtype).repeat(x.shape[0], 1, 1)
-    grid = torch.nn.functional.affine_grid(rot_mat, x.size(), align_corners=False).type(dtype)
+    rot_mat = get_rot_mat(theta)[None, ...].type(x.dtype).to(x.device).repeat(x.shape[0], 1, 1)
+    grid = torch.nn.functional.affine_grid(rot_mat, x.size(), align_corners=False).type(x.dtype).to(x.device)
     x = torch.nn.functional.grid_sample(x, grid, align_corners=False)
     return x
 
