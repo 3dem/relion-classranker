@@ -174,7 +174,15 @@ def validate(valid_loader, model, criterion, device):
     return model, epoch_loss
 
 
-def training_loop(model, criterion, optimizer, train_loader, valid_loader, epochs, device, print_every=1):
+def training_loop(
+        model,
+        criterion,
+        optimizer,
+        train_loader,
+        valid_loader=None,
+        epochs=N_EPOCHS,
+        device=torch.device('cpu'),
+        print_every=1):
     '''
     Function defining the entire training loop
     '''
@@ -182,6 +190,8 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
     # set objects for storing metrics
     train_losses = []
     valid_losses = []
+
+    valid_loss = 0
 
     # Train model
     for epoch in range(0, epochs):
@@ -192,9 +202,10 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
         train_losses.append(train_loss)
 
         # validation
-        with torch.no_grad():
-            model, valid_loss = validate(valid_loader, model, criterion, device)
-            valid_losses.append(valid_loss)
+        if valid_loader is not None:
+            with torch.no_grad():
+                model, valid_loss = validate(valid_loader, model, criterion, device)
+                valid_losses.append(valid_loss)
 
         if epoch % print_every == (print_every - 1):
             dt = time.time() - dt
@@ -219,6 +230,7 @@ if __name__ == "__main__":
     parser.add_argument('--output', type=str, default="train_out")
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--random_seed', type=int, default=RANDOM_SEED)
+    parser.add_argument('--no_valid', action='store_true')
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
@@ -239,9 +251,16 @@ if __name__ == "__main__":
     valid_x = ds['valid_x'].to(device)
     valid_xp = ds['valid_xp'].to(device)
     valid_y = ds['valid_y'].to(device)
-    
+
+    if args.no_valid:
+        train_x = torch.cat([train_x, valid_x], 0)
+        train_y = torch.cat([train_y, valid_y], 0)
+        train_xp = torch.cat([train_xp, valid_xp], 0)
+        valid_dataset = None
+    else:
+        valid_dataset = TensorDataset(valid_x, valid_y, valid_xp)
+
     train_dataset = TensorDataset(train_x, train_y, train_xp)
-    valid_dataset = TensorDataset(valid_x, valid_y, valid_xp)
     criterion = nn.MSELoss()
     
     print('P_DROPOUT= ', P_DROPOUT, ' LEARNING_RATE=', LEARNING_RATE, ' BATCH_SIZE= ', BATCH_SIZE, ' USE_IMAGES= ',

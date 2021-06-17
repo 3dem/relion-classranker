@@ -26,12 +26,11 @@ if __name__ == "__main__":
     x = data["y_true"]
     y = data["y_pred"]
 
-    h, _, _ = np.histogram2d(
-        x, y, bins=10, range=[[0, 1], [0, 1]])
+    h, _, _ = np.histogram2d(x, y, bins=10, range=[[0, 1], [0, 1]], density=True)
 
     h[0, 0] = 0
 
-    plt.imshow(h, extent=[0, 1, 1, 0])
+    plt.imshow(h, extent=[0, 1, 1, 0], cmap="gist_heat")
     plt.xlabel("Predicted Score")
     plt.ylabel("Labeled Score")
     plt.show()

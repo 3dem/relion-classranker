@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument('model', type=str)
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--random_seed', type=int, default=RANDOM_SEED)
+    parser.add_argument('--use_all', action='store_true')
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
@@ -30,23 +31,22 @@ if __name__ == "__main__":
 
     np.random.seed(args.random_seed)
     torch.manual_seed(args.random_seed)
-    print('DEVICE=', device)
     
     print('Loading previously saved tensors from .pt files...')
     ds = torch.load(args.dataset)
     train_x = ds['train_x'].to(device)
     train_xp = ds['train_xp'].to(device)
     train_y = ds['train_y'].to(device)
-    valid_x = ds['valid_x'].to(device)
-    valid_xp = ds['valid_xp'].to(device)
-    valid_y = ds['valid_y'].to(device)
+    x = ds['valid_x'].to(device)
+    xp = ds['valid_xp'].to(device)
+    y = ds['valid_y'].to(device)
 
-    x = torch.cat([train_x, valid_x], 0)
-    y = torch.cat([train_y, valid_y], 0)
-    xp = torch.cat([train_xp, valid_xp], 0)
+    if args.use_all:
+        x = torch.cat([train_x, x], 0)
+        y = torch.cat([train_y, y], 0)
+        xp = torch.cat([train_xp, xp], 0)
 
     dataset = TensorDataset(x, y, xp)
-
 
     torch.no_grad()
     loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
@@ -56,6 +56,8 @@ if __name__ == "__main__":
 
     y_pred = np.zeros(len(loader.dataset))
     y_true = np.zeros(len(loader.dataset))
+
+    print('Running network...')
 
     for i, [x, y, xp] in enumerate(loader):
         bz = x.shape[0]
