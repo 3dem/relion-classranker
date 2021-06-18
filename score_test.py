@@ -37,14 +37,18 @@ if __name__ == "__main__":
     train_x = ds['train_x'].to(device)
     train_xp = ds['train_xp'].to(device)
     train_y = ds['train_y'].to(device)
+    train_img_names = ds['train_img_names']
+
     x = ds['valid_x'].to(device)
     xp = ds['valid_xp'].to(device)
     y = ds['valid_y'].to(device)
+    img_names = ds['valid_img_names']
 
     if args.use_all:
-        x = torch.cat([train_x, x], 0)
-        y = torch.cat([train_y, y], 0)
-        xp = torch.cat([train_xp, xp], 0)
+        x = torch.cat([x, train_x], 0)
+        y = torch.cat([y, train_y], 0)
+        xp = torch.cat([xp, train_xp], 0)
+        img_names += train_img_names
 
     dataset = TensorDataset(x, y, xp)
 
@@ -72,7 +76,8 @@ if __name__ == "__main__":
     pickle.dump(
         {
             "y_pred": y_pred,
-            "y_true": y_true
+            "y_true": y_true,
+            "img_names": img_names
         },
         open(output, "wb"),
         protocol=4

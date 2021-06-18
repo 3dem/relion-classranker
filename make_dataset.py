@@ -110,8 +110,12 @@ if __name__ == "__main__":
 
     nx, ny, nz, testsubimage = load_mrc(from_root(fn_subimage))
 
-    my_x_train = np.zeros(shape=(nr_train * nz, 1, nx, ny), dtype=np.single)
+    subImageStack_valid = []
+    subImageStack_train = []
+    referenceImage_valid = []
+    referenceImage_train = []
     my_x_valid = np.zeros(shape=(nr_valid * nz, 1, nx, ny), dtype=np.single)
+    my_x_train = np.zeros(shape=(nr_train * nz, 1, nx, ny), dtype=np.single)
     for i, x in enumerate(dataset['rlnSubImageStack']):
         if i < nr_train + nr_valid:
             if i % 500 == 0:
@@ -121,13 +125,17 @@ if __name__ == "__main__":
             for z in range(nz):
                 if i < nr_valid:
                     my_x_valid[i * nz + z, 0] = subimage[z, :, :]
+                    subImageStack_valid.append(str(z) + "@" + dataset['rlnSubImageStack'][i])
+                    referenceImage_valid.append(dataset['rlnReferenceImage'][i])
                 else:
                     my_x_train[(i - nr_valid) * nz + z, 0] = subimage[z, :, :]
+                    subImageStack_train.append(str(z) + "@" + dataset['rlnSubImageStack'][i])
+                    referenceImage_train.append(dataset['rlnReferenceImage'][i])
         else:
             break
 
-    my_xp_train = np.zeros(shape=(nr_train * nz, 24))
     my_xp_valid = np.zeros(shape=(nr_valid * nz, 24))
+    my_xp_train = np.zeros(shape=(nr_train * nz, 24))
     for i, x in enumerate(dataset['rlnNormalizedFeatureVector']):
         stringarray = x.replace('[', '').replace(']', '').split(',')
         if i < nr_train + nr_valid:
@@ -138,8 +146,8 @@ if __name__ == "__main__":
                     else:
                         my_xp_train[(i - nr_valid) * nz + z, j] = float(y)
 
-    my_y_train = np.zeros(shape=(nr_train * nz, 1), dtype=np.single)
     my_y_test = np.zeros(shape=(nr_valid * nz, 1), dtype=np.single)
+    my_y_train = np.zeros(shape=(nr_train * nz, 1), dtype=np.single)
 
     for i, x in enumerate(dataset['rlnClassScore']):
         if i < nr_train + nr_valid:
@@ -152,12 +160,12 @@ if __name__ == "__main__":
         else:
             break
 
-    print('y_train_shape= ', my_y_train.shape)
-    print('x_train_shape= ', my_x_train.shape)
-    print('xp_train_shape= ', my_xp_train.shape)
     print('y_valid_shape= ', my_y_test.shape)
     print('x_valid_shape= ', my_x_valid.shape)
     print('xp_valid_shape= ', my_xp_valid.shape)
+    print('y_train_shape= ', my_y_train.shape)
+    print('x_train_shape= ', my_x_train.shape)
+    print('xp_train_shape= ', my_xp_train.shape)
 
     output_root = args.data_root + '/dataset.pt'
 
@@ -166,12 +174,16 @@ if __name__ == "__main__":
 
     torch.save(
         {
+            "valid_x": torch.Tensor(my_x_valid),
+            "valid_xp": torch.Tensor(my_xp_valid),
+            "valid_y": torch.Tensor(my_y_test),
+            "valid_subImageStack": subImageStack_valid,
+            "valid_referenceImage": referenceImage_valid,
             "train_x": torch.Tensor(my_x_train),
             "train_xp": torch.Tensor(my_xp_train),
             "train_y": torch.Tensor(my_y_train),
-            "valid_x": torch.Tensor(my_x_valid),
-            "valid_xp": torch.Tensor(my_xp_valid),
-            "valid_y": torch.Tensor(my_y_test)
+            "train_subImageStack": subImageStack_train,
+            "train_referenceImage": referenceImage_train,
         },
         output_root
     )
