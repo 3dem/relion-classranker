@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
     h[0, 0] = 0
 
-    plt.imshow(h, extent=[0, 1, 1, 0], cmap="gist_heat")
+    plt.imshow(np.log(h), extent=[0, 1, 1, 0], cmap="gist_heat")
     plt.xlabel("Predicted Score")
     plt.ylabel("Labeled Score")
     plt.show()

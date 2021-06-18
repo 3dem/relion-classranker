@@ -65,8 +65,8 @@ if __name__ == "__main__":
         xp = xp.to(device)
 
         y_ = model(x, xp)
-        y_pred[i:i+bz] = y_[:, 0].detach().numpy()
-        y_true[i:i+bz] = y[:, 0].detach().numpy()
+        y_pred[i:i+bz] = y_[:, 0].detach().cpu().numpy()
+        y_true[i:i+bz] = y[:, 0].detach().cpu().numpy()
 
     output = args.model + "_score_test.pkl"
     pickle.dump(
