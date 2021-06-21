@@ -125,11 +125,11 @@ if __name__ == "__main__":
             for z in range(nz):
                 if i < nr_valid:
                     my_x_valid[i * nz + z, 0] = subimage[z, :, :]
-                    subImageStack_valid.append(str(z) + "@" + dataset['rlnSubImageStack'][i])
+                    subImageStack_valid.append(str(z+1) + "@" + dataset['rlnSubImageStack'][i])
                     referenceImage_valid.append(dataset['rlnReferenceImage'][i])
                 else:
                     my_x_train[(i - nr_valid) * nz + z, 0] = subimage[z, :, :]
-                    subImageStack_train.append(str(z) + "@" + dataset['rlnSubImageStack'][i])
+                    subImageStack_train.append(str(z+1) + "@" + dataset['rlnSubImageStack'][i])
                     referenceImage_train.append(dataset['rlnReferenceImage'][i])
         else:
             break

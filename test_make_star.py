@@ -28,7 +28,7 @@ if __name__ == "__main__":
     subImageStack = data["subImageStack"]
     referenceImage = data["referenceImage"]
 
-    with open(args.out + "_model.star", "w") as f:
+    with open(args.output + "_model.star", "w") as f:
         f.write(
             "# version 30001\n\n" +
             "data_normalized_features\n\n" +
@@ -43,6 +43,6 @@ if __name__ == "__main__":
             f.write(
                 referenceImage[i] + " " +
                 subImageStack[i] + " " +
-                y_true[i] + " " +
-                y_pred[i]
+                str(y_true[i]) + " " +
+                str(y_pred[i]) + "\n"
             )

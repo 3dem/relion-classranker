@@ -56,7 +56,7 @@ if __name__ == "__main__":
     dataset = TensorDataset(x, y, xp)
 
     torch.no_grad()
-    loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=True)
+    loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     model = torch.jit.load(args.model).to(device)
     model.eval()
