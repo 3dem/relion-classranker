@@ -19,6 +19,7 @@ FEAT_EXT_W = 512
 USE_IMAGES = True
 USE_FEATURES = True
 ROT_AUGMENT = True
+FLIP_AUGMENT = True
 
 MASK_FEATURE_IDX = np.array([11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
 
@@ -137,6 +138,9 @@ def train(train_loader, model, criterion, optimizer, device):
 
         if ROT_AUGMENT:
             x = random_rot(x)
+
+        if FLIP_AUGMENT and np.random.choice([0, 1]) == 1:
+            x = torch.flip(x, [3])
 
         optimizer.zero_grad()
 
