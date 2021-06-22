@@ -12,7 +12,7 @@ RANDOM_SEED = 12
 LEARNING_RATE = 0.00005
 WEIGHT_DECAY = 0.0005
 BATCH_SIZE = 32
-N_EPOCHS = 50
+N_EPOCHS = 100
 P_DROPOUT = 0.3
 CNN_W = 16
 FEAT_EXT_W = 512
@@ -47,24 +47,33 @@ class Model(nn.Module):
 
         self.cnn_layers = nn.Sequential(
 
-            nn.Conv2d(1, CNN_W, kernel_size=5, stride=1, padding=1),
+            nn.Conv2d(1, CNN_W, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(p=p_dropout),
+            nn.Conv2d(CNN_W, CNN_W, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(CNN_W, CNN_W * 2, kernel_size=3, stride=2, padding=1),
             nn.Dropout(p=p_dropout),
 
-            nn.Conv2d(CNN_W, CNN_W * 2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(CNN_W * 2, CNN_W * 2, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(p=p_dropout),
+            nn.Conv2d(CNN_W * 2, CNN_W * 2, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(CNN_W * 2, CNN_W * 4, kernel_size=3, stride=2, padding=1),
             nn.Dropout(p=p_dropout),
 
-            nn.Conv2d(CNN_W * 2, CNN_W * 4, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(CNN_W * 4, CNN_W * 4, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(p=p_dropout),
+            nn.Conv2d(CNN_W * 4, CNN_W * 4, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(CNN_W * 4, CNN_W * 8, kernel_size=3, stride=2, padding=1),
             nn.Dropout(p=p_dropout),
         )
 
         self.feature_extractor = nn.Sequential(
-            nn.Linear(CNN_W * 4 * 7 * 7, FEAT_EXT_W)
+            nn.Linear(CNN_W * 8 * 8 * 8, FEAT_EXT_W)
         )
 
         self.classifier_images_and_features = nn.Sequential(
@@ -174,15 +183,7 @@ def validate(valid_loader, model, criterion, device):
     return model, epoch_loss
 
 
-def training_loop(
-        model,
-        criterion,
-        optimizer,
-        train_loader,
-        valid_loader=None,
-        epochs=N_EPOCHS,
-        device=torch.device('cpu'),
-        print_every=1):
+def training_loop(model, criterion, optimizer, train_loader, valid_loader, epochs, device, print_every=1):
     '''
     Function defining the entire training loop
     '''
@@ -190,8 +191,6 @@ def training_loop(
     # set objects for storing metrics
     train_losses = []
     valid_losses = []
-
-    valid_loss = 0
 
     # Train model
     for epoch in range(0, epochs):
@@ -202,10 +201,9 @@ def training_loop(
         train_losses.append(train_loss)
 
         # validation
-        if valid_loader is not None:
-            with torch.no_grad():
-                model, valid_loss = validate(valid_loader, model, criterion, device)
-                valid_losses.append(valid_loss)
+        with torch.no_grad():
+            model, valid_loss = validate(valid_loader, model, criterion, device)
+            valid_losses.append(valid_loss)
 
         if epoch % print_every == (print_every - 1):
             dt = time.time() - dt
@@ -230,14 +228,13 @@ if __name__ == "__main__":
     parser.add_argument('--output', type=str, default="train_out")
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--random_seed', type=int, default=RANDOM_SEED)
-    parser.add_argument('--no_valid', action='store_true')
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     
     device = "cuda:0" if args.gpu >= 0 else "cpu"
     
-    sys.stdout = Logger(args.output + 'std.out')
+    sys.stdout = Logger(args.output + '_std.out')
 
     np.random.seed(args.random_seed)
     torch.manual_seed(args.random_seed)
@@ -251,16 +248,9 @@ if __name__ == "__main__":
     valid_x = ds['valid_x'].to(device)
     valid_xp = ds['valid_xp'].to(device)
     valid_y = ds['valid_y'].to(device)
-
-    if args.no_valid:
-        train_x = torch.cat([train_x, valid_x], 0)
-        train_y = torch.cat([train_y, valid_y], 0)
-        train_xp = torch.cat([train_xp, valid_xp], 0)
-        valid_dataset = None
-    else:
-        valid_dataset = TensorDataset(valid_x, valid_y, valid_xp)
-
+    
     train_dataset = TensorDataset(train_x, train_y, train_xp)
+    valid_dataset = TensorDataset(valid_x, valid_y, valid_xp)
     criterion = nn.MSELoss()
     
     print('P_DROPOUT= ', P_DROPOUT, ' LEARNING_RATE=', LEARNING_RATE, ' BATCH_SIZE= ', BATCH_SIZE, ' USE_IMAGES= ',
@@ -282,16 +272,6 @@ if __name__ == "__main__":
     feature_tensor = torch.zeros([1, 24], dtype=torch.float)
     traced_script_module = torch.jit.trace(model_cpu, (image_tensor, feature_tensor))
     
-    output_fn = args.output
-    if (USE_IMAGES):
-        output_fn = output_fn + '_images'
-    if (USE_FEATURES):
-        output_fn = output_fn + '_features'
-    
-    output_fn += '_batch' + str(BATCH_SIZE) + \
-                      '_rate' + str(LEARNING_RATE) + \
-                      '_drop' + str(P_DROPOUT) + \
-                      '_epoch' + str(N_EPOCHS) + \
-                      '_model.pt'
+    output_fn = args.output + '_model.pt'
     traced_script_module.save(output_fn)
     print('Written out model as: ', output_fn)

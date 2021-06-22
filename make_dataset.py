@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
     data_root = args.data_root
     print('Generating tensors from the RELION STAR file...')
-    dataset = load_star(args.star_file)['normalized_features']
+    dataset = load_star(args.star_file)['']
     nr_entries = len(dataset['rlnClassScore'])
     fn_subimage = dataset['rlnSubImageStack'][0]
 

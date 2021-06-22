@@ -53,33 +53,39 @@ if __name__ == "__main__":
         subImageStack += train_subImageStack
         referenceImage += train_referenceImage
 
-    dataset = TensorDataset(x, y, xp)
-
     torch.no_grad()
-    loader = DataLoader(dataset=dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     model = torch.jit.load(args.model).to(device)
     model.eval()
 
-    y_pred = np.zeros(len(loader.dataset))
-    y_true = np.zeros(len(loader.dataset))
+    y_pred = np.zeros(len(y))
 
     print('Running network...')
+    
+    current_pos = 0
+    
+    while True:
+        if current_pos + BATCH_SIZE < y.shape[0]:
+            x_ = x[current_pos:current_pos + BATCH_SIZE].to(device)
+            xp_ = xp[current_pos:current_pos + BATCH_SIZE].to(device)
+            bz = BATCH_SIZE
+        else:
+            x_ = x[current_pos:].to(device)
+            xp_ = xp[current_pos:].to(device)
+            bz = len(x_)
 
-    for i, [x, y, xp] in enumerate(loader):
-        bz = x.shape[0]
-        x = x.to(device)
-        xp = xp.to(device)
-
-        y_ = model(x, xp)
-        y_pred[i:i+bz] = y_[:, 0].detach().cpu().numpy()
-        y_true[i:i+bz] = y[:, 0].detach().cpu().numpy()
-
+        y_ = model(x_, xp_)
+        y_pred[current_pos:current_pos+bz] = y_[:, 0].detach().cpu().numpy()
+        
+        current_pos += BATCH_SIZE
+        if current_pos > y.shape[0] -1:
+            break
+        
     output = args.model + "_score_test.pkl"
     pickle.dump(
         {
             "y_pred": y_pred,
-            "y_true": y_true,
+            "y_true": y[:, 0].detach().cpu().numpy(),
             "subImageStack": subImageStack,
             "referenceImage": referenceImage
         },
