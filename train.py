@@ -218,8 +218,11 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
                   f'Time: {dt:.2f}\t')
 
     # plot_losses(train_losses, valid_losses)
-    mean_late_loss = np.mean(np.array(valid_losses[-min(len(valid_losses) - 1, 10):]))
-    print(f'Final valid loss: {mean_late_loss}')
+    mean_count = min(len(valid_losses) - 1, 10)
+    vloss = np.mean(np.array(valid_losses[-mean_count:]))
+    tloss = np.mean(np.array(train_losses[-mean_count:]))
+    print(f'Final valid loss: {vloss} (mean of last {mean_count} epochs)')
+    print(f'Final train loss: {tloss} (mean of last {mean_count} epochs)')
 
     return model, (train_losses, valid_losses)
 

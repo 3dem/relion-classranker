@@ -19,6 +19,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('data', type=str)
+    parser.add_argument('--title', type=str, default=None)
     args = parser.parse_args()
 
     data = pickle.load(open(args.data, "br"))
@@ -30,8 +31,23 @@ if __name__ == "__main__":
 
     h[0, 0] = 0
 
-    plt.imshow(np.log(h), extent=[0, 1, 1, 0])
-    plt.xlabel("Predicted Score")
-    plt.ylabel("Labeled Score")
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+
+    if args.title is not None:
+        fig.suptitle(args.title)
+
+    h_ = np.empty_like(h)
+    h_[:] = np.nan
+    h_[h > 0] = np.log(h[h > 0])
+    ax1.imshow(h_, extent=[0, 1, 1, 0])
+    ax1.set(xlabel='Predicted Score', ylabel='Labeled Score')
+    ax1.set_title("Log")
+
+    h_ = h / np.sum(h, axis=1)[:, None]
+    # h_[h == 0] = np.nan
+    ax2.imshow(h_, extent=[0, 1, 1, 0])
+    ax2.set(xlabel='Predicted Score')
+    ax2.set_title("Row normalized")
+
     plt.show()
 
