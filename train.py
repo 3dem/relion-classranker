@@ -235,6 +235,7 @@ if __name__ == "__main__":
     parser.add_argument('--output', type=str, default="train_out")
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--random_seed', type=int, default=RANDOM_SEED)
+    parser.add_argument('--use_all', action="store_true")
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
@@ -255,7 +256,12 @@ if __name__ == "__main__":
     valid_x = ds['valid_x'].to(device)
     valid_xp = ds['valid_xp'].to(device)
     valid_y = ds['valid_y'].to(device)
-    
+
+    if args.use_all:
+        train_x = torch.cat([valid_x, train_x], 0)
+        train_y = torch.cat([valid_y, train_y], 0)
+        train_xp = torch.cat([valid_xp, train_xp], 0)
+
     train_dataset = TensorDataset(train_x, train_y, train_xp)
     valid_dataset = TensorDataset(valid_x, valid_y, valid_xp)
     criterion = nn.MSELoss()
