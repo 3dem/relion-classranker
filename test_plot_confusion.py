@@ -29,8 +29,6 @@ if __name__ == "__main__":
 
     h, _, _ = np.histogram2d(x, y, bins=10, range=[[0, 1], [0, 1]], density=True)
 
-    h[0, 0] = 0
-
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
 
     if args.title is not None:
@@ -39,13 +37,13 @@ if __name__ == "__main__":
     h_ = np.empty_like(h)
     h_[:] = np.nan
     h_[h > 0] = np.log(h[h > 0])
-    ax1.imshow(h_, extent=[0, 1, 1, 0])
+    ax1.imshow(h_, extent=[0, 1, 1, 0], cmap='gray')
     ax1.set(xlabel='Predicted Score', ylabel='Labeled Score')
     ax1.set_title("Log")
 
     h_ = h / np.sum(h, axis=1)[:, None]
     # h_[h == 0] = np.nan
-    ax2.imshow(h_, extent=[0, 1, 1, 0])
+    ax2.imshow(h_, extent=[0, 1, 1, 0], cmap='gray')
     ax2.set(xlabel='Predicted Score')
     ax2.set_title("Row normalized")
 
