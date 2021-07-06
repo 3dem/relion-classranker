@@ -20,6 +20,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('data', type=str)
     parser.add_argument('--title', type=str, default=None)
+    parser.add_argument('--cmap', type=str, default='gray')
     args = parser.parse_args()
 
     data = pickle.load(open(args.data, "br"))
@@ -37,13 +38,13 @@ if __name__ == "__main__":
     h_ = np.empty_like(h)
     h_[:] = np.nan
     h_[h > 0] = np.log(h[h > 0])
-    ax1.imshow(h_, extent=[0, 1, 1, 0], cmap='gray')
+    ax1.imshow(h_, extent=[0, 1, 1, 0], cmap=args.cmap)
     ax1.set(xlabel='Predicted Score', ylabel='Labeled Score')
     ax1.set_title("Log")
 
     h_ = h / np.sum(h, axis=1)[:, None]
     # h_[h == 0] = np.nan
-    ax2.imshow(h_, extent=[0, 1, 1, 0], cmap='gray')
+    ax2.imshow(h_, extent=[0, 1, 1, 0], cmap=args.cmap)
     ax2.set(xlabel='Predicted Score')
     ax2.set_title("Row normalized")
 
