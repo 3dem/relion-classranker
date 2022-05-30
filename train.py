@@ -12,16 +12,17 @@ RANDOM_SEED = 12
 LEARNING_RATE = 0.00005
 WEIGHT_DECAY = 0.0005
 BATCH_SIZE = 32
-N_EPOCHS = 100
+N_EPOCHS = 200
 P_DROPOUT = 0.3
 CNN_W = 16
-FEAT_EXT_W = 512
+FEAT_EXT_W = 48
+FEAT_EXT_W2 = 48
 USE_IMAGES = True
 USE_FEATURES = True
 ROT_AUGMENT = True
 FLIP_AUGMENT = True
 
-MASK_FEATURE_IDX = np.array([11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
+MASK_FEATURE_IDX = np.array([15, 16, 17, 18, 19, 20])
 
 
 class Logger(object):
@@ -79,10 +80,10 @@ class Model(nn.Module):
 
         self.classifier_images_and_features = nn.Sequential(
             nn.Dropout(p=p_dropout),
-            nn.Linear(FEAT_EXT_W + 24, 128),
+            nn.Linear(FEAT_EXT_W + 24, FEAT_EXT_W2),
             nn.ReLU(inplace=True),
             nn.Dropout(p=p_dropout),
-            nn.Linear(128, 1)
+            nn.Linear(FEAT_EXT_W2, 1)
         )
 
         self.classifier_images = nn.Sequential(
@@ -218,36 +219,31 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
                   f'Time: {dt:.2f}\t')
 
     # plot_losses(train_losses, valid_losses)
-    mean_count = min(len(valid_losses) - 1, 10)
-    vloss = np.mean(np.array(valid_losses[-mean_count:]))
-    tloss = np.mean(np.array(train_losses[-mean_count:]))
-    print(f'Final valid loss: {vloss} (mean of last {mean_count} epochs)')
-    print(f'Final train loss: {tloss} (mean of last {mean_count} epochs)')
+    mean_late_loss = np.mean(np.array(valid_losses[-min(len(valid_losses) - 1, 10):]))
+    print(f'Final valid loss: {mean_late_loss}')
 
     return model, (train_losses, valid_losses)
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument('dataset', type=str)
     parser.add_argument('--output', type=str, default="train_out")
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--random_seed', type=int, default=RANDOM_SEED)
-    parser.add_argument('--use_all', action="store_true")
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-    
+
     device = "cuda:0" if args.gpu >= 0 else "cpu"
-    
+
     sys.stdout = Logger(args.output + '_std.out')
 
     np.random.seed(args.random_seed)
     torch.manual_seed(args.random_seed)
     print('DEVICE=', device)
-    
+
     print('Loading previously saved tensors from their .pt files...')
     ds = torch.load(args.dataset)
     train_x = ds['train_x'].to(device)
@@ -257,17 +253,13 @@ if __name__ == "__main__":
     valid_xp = ds['valid_xp'].to(device)
     valid_y = ds['valid_y'].to(device)
 
-    if args.use_all:
-        train_x = torch.cat([valid_x, train_x], 0)
-        train_y = torch.cat([valid_y, train_y], 0)
-        train_xp = torch.cat([valid_xp, train_xp], 0)
-
     train_dataset = TensorDataset(train_x, train_y, train_xp)
     valid_dataset = TensorDataset(valid_x, valid_y, valid_xp)
     criterion = nn.MSELoss()
-    
+
     print('P_DROPOUT= ', P_DROPOUT, ' LEARNING_RATE=', LEARNING_RATE, ' BATCH_SIZE= ', BATCH_SIZE, ' USE_IMAGES= ',
-          USE_IMAGES, ' USE_FEATURES= ', USE_FEATURES, ' N_EPOCHS= ', N_EPOCHS)
+          USE_IMAGES, ' USE_FEATURES= ', USE_FEATURES, ' N_EPOCHS= ', N_EPOCHS, 'CNN_W= ', CNN_W, ' FEAT_EXT_W= ',
+          FEAT_EXT_W, ' FEAT_EXT_W2= ', FEAT_EXT_W2)
 
     train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     valid_loader = DataLoader(dataset=valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
@@ -278,13 +270,13 @@ if __name__ == "__main__":
     print(model)
 
     model, _ = training_loop(model, criterion, optimizer, train_loader, valid_loader, N_EPOCHS, device)
-    
+
     model_cpu = model.to('cpu')
     model_cpu.eval()
     image_tensor = torch.zeros([1, 1, 64, 64], dtype=torch.float)
     feature_tensor = torch.zeros([1, 24], dtype=torch.float)
     traced_script_module = torch.jit.trace(model_cpu, (image_tensor, feature_tensor))
-    
+
     output_fn = args.output + '_model.pt'
     traced_script_module.save(output_fn)
     print('Written out model as: ', output_fn)
