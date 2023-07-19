@@ -1,9 +1,9 @@
 # Classranker
 
-This repository holds the code for training and preparing the model for <em>RELION class ranker</em> as well as the executable python dependency used by <em>RELION<em>.
+This repository holds the code for training and running the model for the class ranking functionality of [RELION](https://github.com/3dem/relion).
 
 ## Quick summary
-The class ranker is part of the cryogenic electron microscopy (cryo-EM) dataset processing pipeline. It is used to automatically select suitable particles (EM images) assigned to 2D class averages for further downstream processing.
+The class ranker is part of the cryogenic electron microscopy (cryo-EM) dataset processing pipeline in RELION. It is used to automatically select suitable particles (EM images) assigned to 2D class averages for further downstream processing.
 
 This model comprises two main components: a CNN responsible for extracting image features, and an MLP that combines the image features with additional statistics to assigns a score ranging from zero to one for each 2D class average.
 
