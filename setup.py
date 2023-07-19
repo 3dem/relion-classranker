@@ -4,30 +4,42 @@ Setup module for Classranker
 
 from setuptools import setup, find_packages
 
-import classranker
+import os
 
-extras = {
-    "classranker": [
-        "torch",
-        "numpy"
-    ]
-}
+lib_folder = os.path.dirname(os.path.realpath(__file__))
+requirement_path = f"{lib_folder}/requirements.txt"
+readme_path = f"{lib_folder}/README.md"
 
-with open("README.md") as f:
-    readme = f.read()
+# Load requirements
+install_requires = []
+if os.path.isfile(requirement_path):
+    with open(requirement_path, "r") as f:
+        install_requires = f.read().splitlines()
+else:
+    print("Could not find requirements file.")
+    exit(1)
+
+# Load readme file for long description
+if os.path.isfile(readme_path):
+    with open(readme_path, "r") as f:
+        readme = f.read()
+else:
+    readme = None
 
 # Add command line option
 setup(
     name="classranker",
     description="Code for training and running the model for the class ranking functionality of RELION",
-    version=classranker.__version__,
+    version="0.0.1",
     long_description=readme,
     packages=find_packages(),
     entry_points={
         'console_scripts': ['classranker=classranker:main']
     },
-    extras_require=extras,
+    install_requires=install_requires,
+    python_requires=">=3.5",
 )
 
 # Download, install and load model
-classranker.install_and_load_model("v1.0")
+# import classranker
+# classranker.install_and_load_model("v1.0")

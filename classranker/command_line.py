@@ -83,13 +83,17 @@ def apply_model(model, features, images):
 def main():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('project_dir', type=str, default=None)
     parser.add_argument('-m', '--model_name', type=str, default="v1.0")
-    parser.add_argument('project_dir', type=str)
     args = parser.parse_args()
 
     torch.no_grad()
 
     model = install_and_load_model(args.model_name)
+
+    if args.project_dir is None:
+        print("No project directory specified.")
+        exit(0)
 
     feature_fn = os.path.join(args.project_dir, "features.npy")
     images_fn = os.path.join(args.project_dir, "images.npy")
