@@ -34,6 +34,9 @@ def install_and_load_model(
         ]
     }
 
+    if name not in model_list.keys():
+        return None
+
     dest_dir = os.path.join(torch.hub.get_dir(), "checkpoints", "relion_class_ranker")
     model_path = os.path.join(dest_dir, f"{name}.ckpt")
     model_path_gz = model_path + ".gz"
@@ -83,7 +86,7 @@ def apply_model(model, features, images):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('project_dir', type=str, default=None)
+    parser.add_argument('project_dir', nargs='?', default=None)
     parser.add_argument('-m', '--model_name', type=str, default="v1.0")
     args = parser.parse_args()
 
@@ -91,8 +94,12 @@ def main():
 
     model = install_and_load_model(args.model_name)
 
+    if model is None:
+        print("Model name not found!")
+        exit(1)
+
     if args.project_dir is None:
-        print("No project directory specified.")
+        print("Model loads successfully, but no project directory was specified...")
         exit(0)
 
     feature_fn = os.path.join(args.project_dir, "features.npy")
