@@ -218,7 +218,7 @@ if __name__ == "__main__":
     with open(MODEL_PATH, "r") as file:
         model_definition = file.read()
 
-    output_fn = args.output + '_checkpoint.pt'
+    output_fn = args.output + '_checkpoint.ckpt'
     torch.save(
         {
             'model_state_dict': model.state_dict(),

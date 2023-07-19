@@ -1,7 +1,7 @@
-import importlib
 import os
 import argparse
 import sys
+import types
 
 try:
     import torch
@@ -21,34 +21,38 @@ if sys.version_info < (3, 0):
 
 
 def setup_model(name: str) -> str:
-    bundle_name_to_link = {
-        "v1.0": "https://zenodo.org/record/7733060/files/original.zip",
+    model_list = {
+        "v1.0": [
+            "ftp://ftp.mrc-lmb.cam.ac.uk/pub/dari/classranker_v1.0.ckpt.gz",
+            "68a9855c16d7bab64b7e73e1e1442c7bf898f227ffd9a19c48ddfd2cf0646d73"
+        ]
     }
-    dest = os.path.join(
-        torch.hub.get_dir(), "checkpoints", "relion_class_ranker", name
-    )
-    if os.path.isfile(os.path.join(dest, "download_complete.txt")):
-        return dest
 
-    print(f"Installing model bundle ({name})...")
-    import zipfile
+    dest_dir = os.path.join(torch.hub.get_dir(), "checkpoints", "relion_class_ranker")
+    model_path = os.path.join(dest_dir, f"{name}.ckpt")
+    model_path_gz = model_path + ".gz"
+    complete_check_path = os.path.join(dest_dir, f"{name}_download_complete.txt")
 
-    os.makedirs(os.path.split(dest)[0], exist_ok=True)
-    torch.hub.download_url_to_file(bundle_name_to_link[name], dest + ".zip")
+    if os.path.isfile(complete_check_path):
+        return model_path
 
-    with zipfile.ZipFile(dest + ".zip", "r") as zip_object:
-        zip_object.extractall(path=os.path.split(dest)[0])
+    print(f"Installing Classranker model ({name})...")
 
-    os.remove(dest + ".zip")
+    os.makedirs(dest_dir, exist_ok=True)
 
-    with open(os.path.join(dest, "download_complete.txt"), "w") as f:
-        f.write("Successfully downloaded model bundle")
+    import gzip, shutil
+    torch.hub.download_url_to_file(model_list[name][0], model_path_gz, hash_prefix=model_list[name][1])
+    with gzip.open(model_path_gz, 'rb') as f_in:
+        with open(model_path, 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+    os.remove(model_path_gz)
 
-    print(f"Model bundle ({name}) successfully installed.")
+    with open(complete_check_path, "w") as f:
+        f.write("Successfully downloaded model")
 
-    state_dict_path = os.path.join(dest, "checkpoint.pt")
+    print(f"Model ({name}) successfully installed in {dest_dir}.")
 
-    return state_dict_path
+    return model_path
 
 
 def init_model(
@@ -58,14 +62,11 @@ def init_model(
     # Load checkpoint file
     checkpoint = torch.load(state_dict_path, map_location="cpu")
 
-    # Create a loader for the module using the string contents
-    model_module_loader = importlib.machinery.SourceFileLoader("module_name", "<string>")
-
-    # Set the file contents as the data for the loader
-    model_module_loader.set_data("<string>", checkpoint['model_definition'].encode("utf-8"))
-
-    # Load the module
-    model_module = model_module_loader.load_module()
+    # Dynamically include model as a module
+    # Make sure download file integrity is checked for this, otherwise major security risk
+    model_module = types.ModuleType("classranker_model")
+    exec(checkpoint['model_definition'], model_module.__dict__)
+    sys.modules["classranker_model"] = model_module
 
     # Load the model
     model = model_module.Model().eval()
