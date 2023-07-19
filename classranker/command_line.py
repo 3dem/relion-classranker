@@ -1,3 +1,10 @@
+import sys
+
+if sys.version_info < (3, 0):
+    # This script requires Python 3. A Syntax error here means you are running it in Python 2.
+    print('This script supports Python 3 or above.')
+    exit(1)
+
 import os
 import argparse
 import sys
@@ -15,12 +22,11 @@ except ImportError:
     print("PYTHON ERROR: The required python module 'numpy' was not found.")
     exit(1)
 
-if sys.version_info < (3, 0):
-    # This script requires Python 3. A Syntax error here means you are running it in Python 2.
-    raise Exception('This script supports Python 3 or above.')
 
-
-def setup_model(name: str) -> str:
+def setup_model(
+        name: str,
+        device: str = "cpu"
+) -> torch.nn.Module:
     model_list = {
         "v1.0": [
             "ftp://ftp.mrc-lmb.cam.ac.uk/pub/dari/classranker_v1.0.ckpt.gz",
@@ -31,39 +37,30 @@ def setup_model(name: str) -> str:
     dest_dir = os.path.join(torch.hub.get_dir(), "checkpoints", "relion_class_ranker")
     model_path = os.path.join(dest_dir, f"{name}.ckpt")
     model_path_gz = model_path + ".gz"
-    complete_check_path = os.path.join(dest_dir, f"{name}_download_complete.txt")
+    completed_check_path = os.path.join(dest_dir, f"{name}_download_complete.txt")
 
-    if os.path.isfile(complete_check_path):
-        return model_path
+    # Download file and install it if not already done
+    if not os.path.isfile(completed_check_path):
+        print(f"Installing Classranker model ({name})...")
+        os.makedirs(dest_dir, exist_ok=True)
 
-    print(f"Installing Classranker model ({name})...")
+        import gzip, shutil
+        torch.hub.download_url_to_file(model_list[name][0], model_path_gz, hash_prefix=model_list[name][1])
+        with gzip.open(model_path_gz, 'rb') as f_in:
+            with open(model_path, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        os.remove(model_path_gz)
 
-    os.makedirs(dest_dir, exist_ok=True)
+        with open(completed_check_path, "w") as f:
+            f.write("Successfully downloaded model")
 
-    import gzip, shutil
-    torch.hub.download_url_to_file(model_list[name][0], model_path_gz, hash_prefix=model_list[name][1])
-    with gzip.open(model_path_gz, 'rb') as f_in:
-        with open(model_path, 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
-    os.remove(model_path_gz)
+        print(f"Model ({name}) successfully installed in {dest_dir}.")
 
-    with open(complete_check_path, "w") as f:
-        f.write("Successfully downloaded model")
-
-    print(f"Model ({name}) successfully installed in {dest_dir}.")
-
-    return model_path
-
-
-def init_model(
-        state_dict_path: str,
-        device: str = "cpu"
-) -> torch.nn.Module:
     # Load checkpoint file
-    checkpoint = torch.load(state_dict_path, map_location="cpu")
+    checkpoint = torch.load(model_path, map_location="cpu")
 
     # Dynamically include model as a module
-    # Make sure download file integrity is checked for this, otherwise major security risk
+    # Make sure to check download integrity for this, otherwise major security risk
     model_module = types.ModuleType("classranker_model")
     exec(checkpoint['model_definition'], model_module.__dict__)
     sys.modules["classranker_model"] = model_module
@@ -76,6 +73,13 @@ def init_model(
     return model
 
 
+def apply_model(model, features, images):
+    features_tensor = torch.from_numpy(features)
+    images_tensor = torch.from_numpy(images).unsqueeze(1)
+    scores = model(images_tensor, features_tensor).detach().cpu().numpy()
+    return scores.cpu().numpy()
+
+
 def main():
     parser = argparse.ArgumentParser()
 
@@ -83,25 +87,21 @@ def main():
     parser.add_argument('project_dir', type=str)
     args = parser.parse_args()
 
-    project_dir = args.project_dir
+    torch.no_grad()
 
-    model_state_dict_path = setup_model(args.model_name)
-    model = init_model(model_state_dict_path)
+    model = setup_model(args.model_name)
 
-    feature_fn = os.path.join(project_dir, "features.npy")
-    images_fn = os.path.join(project_dir, "images.npy")
+    feature_fn = os.path.join(args.project_dir, "features.npy")
+    images_fn = os.path.join(args.project_dir, "images.npy")
 
-    features = np.load(feature_fn)
-    images = np.load(images_fn)
+    scores = apply_model(
+        model=model,
+        features=np.load(feature_fn),
+        images=np.load(images_fn)
+    )
 
-    count = features.shape[0]
-
-    features_tensor = torch.Tensor(features)
-    images_tensor = torch.unsqueeze(torch.Tensor(images), 1)
-    score = model(images_tensor, features_tensor).detach().cpu().numpy()
-
-    for i in range(count):
-        print(score[i, 0], end=" ")
+    for i in range(scores.shape[0]):
+        print(scores[i, 0], end=" ")
 
 
 if __name__ == "__main__":

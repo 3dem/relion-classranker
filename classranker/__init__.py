@@ -1,5 +1,3 @@
-#!/usr/classranker/env python
-
 """
 Classranker - For use in RELION classification
 """
