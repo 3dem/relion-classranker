@@ -7,20 +7,21 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 
+TRAINING_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(TRAINING_DIR, "model.py")
+sys.path.append(os.path.dirname(TRAINING_DIR))
+
+from training.model import *
+
 # Parameters
 RANDOM_SEED = 12
 LEARNING_RATE = 0.00005
 WEIGHT_DECAY = 0.0005
 BATCH_SIZE = 32
-N_EPOCHS = 200
 P_DROPOUT = 0.3
-CNN_W = 16
-FEAT_EXT_W = 48
-FEAT_EXT_W2 = 48
-USE_IMAGES = True
-USE_FEATURES = True
 ROT_AUGMENT = True
 FLIP_AUGMENT = True
+
 
 MASK_FEATURE_IDX = np.array([15, 16, 17, 18, 19, 20])
 
@@ -38,79 +39,6 @@ class Logger(object):
     def flush(self):
         self.terminal.flush()
         self.log.flush()
-
-
-class Model(nn.Module):
-    def __init__(self, p_dropout, _use_images, _use_features):
-        super(Model, self).__init__()
-
-        self.use_images = _use_images
-        self.use_features = _use_features
-
-        self.cnn_layers = nn.Sequential(
-
-            nn.Conv2d(1, CNN_W, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=p_dropout),
-            nn.Conv2d(CNN_W, CNN_W, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(CNN_W, CNN_W * 2, kernel_size=3, stride=2, padding=1),
-            nn.Dropout(p=p_dropout),
-
-            nn.Conv2d(CNN_W * 2, CNN_W * 2, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=p_dropout),
-            nn.Conv2d(CNN_W * 2, CNN_W * 2, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(CNN_W * 2, CNN_W * 4, kernel_size=3, stride=2, padding=1),
-            nn.Dropout(p=p_dropout),
-
-            nn.Conv2d(CNN_W * 4, CNN_W * 4, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=p_dropout),
-            nn.Conv2d(CNN_W * 4, CNN_W * 4, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(CNN_W * 4, CNN_W * 8, kernel_size=3, stride=2, padding=1),
-            nn.Dropout(p=p_dropout),
-        )
-
-        self.feature_extractor = nn.Sequential(
-            nn.Linear(CNN_W * 8 * 8 * 8, FEAT_EXT_W)
-        )
-
-        self.classifier_images_and_features = nn.Sequential(
-            nn.Dropout(p=p_dropout),
-            nn.Linear(FEAT_EXT_W + 24, FEAT_EXT_W2),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=p_dropout),
-            nn.Linear(FEAT_EXT_W2, 1)
-        )
-
-        self.classifier_images = nn.Sequential(
-            nn.Dropout(p=p_dropout),
-            nn.Linear(FEAT_EXT_W, 1)
-        )
-
-        self.classifier_features = nn.Sequential(
-            nn.Linear(24, 12),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=p_dropout),
-            nn.Linear(12, 1)
-        )
-
-    # Defining the forward pass
-    def forward(self, x, y):
-        if (self.use_images):
-            x = self.cnn_layers(x)
-            x = torch.flatten(x, 1)
-            x = self.feature_extractor(x)
-            if (self.use_features):
-                z = torch.cat([x, y], 1)
-                return self.classifier_images_and_features(z)
-            else:
-                return self.classifier_images(x)
-        elif (self.use_features):
-            return self.classifier_features(y)
 
 
 def get_rot_mat(theta):
@@ -219,31 +147,38 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
                   f'Time: {dt:.2f}\t')
 
     # plot_losses(train_losses, valid_losses)
-    mean_late_loss = np.mean(np.array(valid_losses[-min(len(valid_losses) - 1, 10):]))
-    print(f'Final valid loss: {mean_late_loss}')
+    mean_count = min(len(valid_losses) - 1, 10)
+    vloss = np.mean(np.array(valid_losses[-mean_count:]))
+    tloss = np.mean(np.array(train_losses[-mean_count:]))
+    print(f'Final valid loss: {vloss} (mean of last {mean_count} epochs)')
+    print(f'Final train loss: {tloss} (mean of last {mean_count} epochs)')
 
     return model, (train_losses, valid_losses)
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('dataset', type=str)
     parser.add_argument('--output', type=str, default="train_out")
     parser.add_argument('--gpu', type=int, default=-1)
     parser.add_argument('--random_seed', type=int, default=RANDOM_SEED)
+    parser.add_argument('--epochs', type=int, default=200)
+    parser.add_argument('--final-train', action="store_true",
+                        help="Use both validation and training dataset to train.")
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
-
+    
     device = "cuda:0" if args.gpu >= 0 else "cpu"
-
+    
     sys.stdout = Logger(args.output + '_std.out')
 
     np.random.seed(args.random_seed)
     torch.manual_seed(args.random_seed)
     print('DEVICE=', device)
-
+    
     print('Loading previously saved tensors from their .pt files...')
     ds = torch.load(args.dataset)
     train_x = ds['train_x'].to(device)
@@ -252,31 +187,54 @@ if __name__ == "__main__":
     valid_x = ds['valid_x'].to(device)
     valid_xp = ds['valid_xp'].to(device)
     valid_y = ds['valid_y'].to(device)
+    
+    if args.final_train:
+        train_x = torch.cat([valid_x, train_x], 0)
+        train_y = torch.cat([valid_y, train_y], 0)
+        train_xp = torch.cat([valid_xp, train_xp], 0)
 
     train_dataset = TensorDataset(train_x, train_y, train_xp)
     valid_dataset = TensorDataset(valid_x, valid_y, valid_xp)
     criterion = nn.MSELoss()
-
+    
     print('P_DROPOUT= ', P_DROPOUT, ' LEARNING_RATE=', LEARNING_RATE, ' BATCH_SIZE= ', BATCH_SIZE, ' USE_IMAGES= ',
-          USE_IMAGES, ' USE_FEATURES= ', USE_FEATURES, ' N_EPOCHS= ', N_EPOCHS, 'CNN_W= ', CNN_W, ' FEAT_EXT_W= ',
+          USE_IMAGES, ' USE_FEATURES= ', USE_FEATURES, ' N_EPOCHS= ', args.epochs, 'CNN_W= ', CNN_W,  ' FEAT_EXT_W= ',
           FEAT_EXT_W, ' FEAT_EXT_W2= ', FEAT_EXT_W2)
 
     train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     valid_loader = DataLoader(dataset=valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    model = Model(P_DROPOUT, USE_IMAGES, USE_FEATURES).to(device)
+    model = Model(P_DROPOUT).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     print(model)
 
-    model, _ = training_loop(model, criterion, optimizer, train_loader, valid_loader, N_EPOCHS, device)
+    model, (train_losses, valid_losses) = training_loop(
+        model, criterion, optimizer, train_loader, valid_loader, args.epochs, device)
+    
+    model = model.to('cpu')
+    model.eval()
 
-    model_cpu = model.to('cpu')
-    model_cpu.eval()
-    image_tensor = torch.zeros([1, 1, 64, 64], dtype=torch.float)
-    feature_tensor = torch.zeros([1, 24], dtype=torch.float)
-    traced_script_module = torch.jit.trace(model_cpu, (image_tensor, feature_tensor))
+    with open(MODEL_PATH, "r") as file:
+        model_definition = file.read()
 
-    output_fn = args.output + '_model.pt'
-    traced_script_module.save(output_fn)
-    print('Written out model as: ', output_fn)
+    output_fn = args.output + '_checkpoint.pt'
+    torch.save(
+        {
+            'model_state_dict': model.state_dict(),
+            'model_definition': model_definition,
+            'P_DROPOUT': P_DROPOUT,
+            'LEARNING_RATE': LEARNING_RATE,
+            'BATCH_SIZE': BATCH_SIZE,
+            'USE_IMAGES': USE_IMAGES,
+            'USE_FEATURES': USE_FEATURES,
+            'N_EPOCHS': args.epochs,
+            'CNN_W': CNN_W,
+            'FEAT_EXT_W': FEAT_EXT_W,
+            'FEAT_EXT_W2': FEAT_EXT_W2,
+            'train_losses': train_losses,
+            'valid_losses': valid_losses,
+        },
+        output_fn
+    )
+    print('Written model checkpoint file to: ', output_fn)
