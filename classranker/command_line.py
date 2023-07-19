@@ -73,7 +73,7 @@ def install_and_load_model(
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
 
-    return model
+    return model, model_path
 
 
 def apply_model(model, features, images):
@@ -92,14 +92,15 @@ def main():
 
     torch.no_grad()
 
-    model = install_and_load_model(args.model_name)
+    model, model_path = install_and_load_model(args.model_name)
 
     if model is None:
         print("Model name not found!")
         exit(1)
 
     if args.project_dir is None:
-        print("Model loads successfully, but no project directory was specified...")
+        print(f"Model loads successfully (path: {model_path})\n"
+              f"No project directory was specified...")
         exit(0)
 
     feature_fn = os.path.join(args.project_dir, "features.npy")
