@@ -25,8 +25,7 @@ except ImportError:
 
 def install_and_load_model(
         name: str,
-        device: str = "cpu",
-        only_install: bool = False
+        device: str = "cpu"
 ) -> torch.nn.Module:
     model_list = {
         "v1.0": [
@@ -56,9 +55,6 @@ def install_and_load_model(
             f.write("Successfully downloaded model")
 
         print(f"Model ({name}) successfully installed in {dest_dir}")
-
-    if only_install:
-        return None
 
     # Load checkpoint file
     checkpoint = torch.load(model_path, map_location="cpu")
