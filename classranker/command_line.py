@@ -23,9 +23,10 @@ except ImportError:
     exit(1)
 
 
-def setup_model(
+def install_and_load_model(
         name: str,
-        device: str = "cpu"
+        device: str = "cpu",
+        only_install: bool = False
 ) -> torch.nn.Module:
     model_list = {
         "v1.0": [
@@ -37,7 +38,7 @@ def setup_model(
     dest_dir = os.path.join(torch.hub.get_dir(), "checkpoints", "relion_class_ranker")
     model_path = os.path.join(dest_dir, f"{name}.ckpt")
     model_path_gz = model_path + ".gz"
-    completed_check_path = os.path.join(dest_dir, f"{name}_download_complete.txt")
+    completed_check_path = os.path.join(dest_dir, f"{name}_installed.txt")
 
     # Download file and install it if not already done
     if not os.path.isfile(completed_check_path):
@@ -54,7 +55,10 @@ def setup_model(
         with open(completed_check_path, "w") as f:
             f.write("Successfully downloaded model")
 
-        print(f"Model ({name}) successfully installed in {dest_dir}.")
+        print(f"Model ({name}) successfully installed in {dest_dir}")
+
+    if only_install:
+        return None
 
     # Load checkpoint file
     checkpoint = torch.load(model_path, map_location="cpu")
@@ -89,7 +93,7 @@ def main():
 
     torch.no_grad()
 
-    model = setup_model(args.model_name)
+    model = install_and_load_model(args.model_name)
 
     feature_fn = os.path.join(args.project_dir, "features.npy")
     images_fn = os.path.join(args.project_dir, "images.npy")
