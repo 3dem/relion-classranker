@@ -28,18 +28,15 @@ else:
 
 # Add command line option
 setup(
-    name="classranker",
+    name="relion_classranker",
     description="Code for training and running the model for the class ranking functionality of RELION",
     version="0.0.1",
     long_description=readme,
     packages=find_packages(),
-    entry_points={
-        'console_scripts': ['classranker=classranker:main']
-    },
     install_requires=install_requires,
     python_requires=">=3.5",
 )
 
 # Download, install and load model
-# import classranker
-# classranker.install_and_load_model("v1.0")
+# import relion_classranker
+# relion_classranker.install_and_load_model("v1.0")

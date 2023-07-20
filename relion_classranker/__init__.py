@@ -2,4 +2,4 @@
 Classranker - For use in RELION classification
 """
 
-from classranker.command_line import *
+from relion_classranker.command_line import *

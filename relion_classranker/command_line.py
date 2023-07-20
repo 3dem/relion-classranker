@@ -26,7 +26,7 @@ except ImportError:
 def install_and_load_model(
         name: str,
         device: str = "cpu"
-) -> torch.nn.Module:
+):
     model_list = {
         "v1.0": [
             "ftp://ftp.mrc-lmb.cam.ac.uk/pub/dari/classranker_v1.0.ckpt.gz",
@@ -80,7 +80,7 @@ def apply_model(model, features, images):
     features_tensor = torch.from_numpy(features)
     images_tensor = torch.from_numpy(images).unsqueeze(1)
     scores = model(images_tensor, features_tensor).detach().cpu().numpy()
-    return scores.cpu().numpy()
+    return scores
 
 
 def main():
