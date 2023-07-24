@@ -25,7 +25,8 @@ except ImportError:
 
 def install_and_load_model(
         name: str,
-        device: str = "cpu"
+        device: str = "cpu",
+        verbose: bool = False
 ):
     model_list = {
         "v1.0": [
@@ -44,7 +45,8 @@ def install_and_load_model(
 
     # Download file and install it if not already done
     if not os.path.isfile(completed_check_path):
-        print(f"Installing Classranker model ({name})...")
+        if verbose:
+            print(f"Installing Classranker model ({name})...")
         os.makedirs(dest_dir, exist_ok=True)
 
         import gzip, shutil
@@ -57,7 +59,8 @@ def install_and_load_model(
         with open(completed_check_path, "w") as f:
             f.write("Successfully downloaded model")
 
-        print(f"Model ({name}) successfully installed in {dest_dir}")
+        if verbose:
+            print(f"Model ({name}) successfully installed in {dest_dir}")
 
     # Load checkpoint file
     checkpoint = torch.load(model_path, map_location="cpu")
@@ -72,6 +75,9 @@ def install_and_load_model(
     model = model_module.Model().eval()
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
+
+    if verbose:
+        print(f"Model ({name}) loaded successfully from checkpoint {model_path}")
 
     return model, model_path
 
@@ -92,15 +98,18 @@ def main():
 
     torch.no_grad()
 
-    model, model_path = install_and_load_model(args.model_name)
+    model, model_path = install_and_load_model(
+        name=args.model_name,
+        device="cpu",
+        verbose=args.project_dir is None
+    )
 
     if model is None:
         print("Model name not found!")
         exit(1)
 
     if args.project_dir is None:
-        print(f"Model loads successfully (path: {model_path})\n"
-              f"No project directory was specified...")
+        print("No project directory was specified... exiting!")
         exit(0)
 
     feature_fn = os.path.join(args.project_dir, "features.npy")
