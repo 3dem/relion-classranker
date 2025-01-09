@@ -30,7 +30,7 @@ def install_and_load_model(
 ):
     model_list = {
         "v1.0": [
-            "ftp://ftp.mrc-lmb.cam.ac.uk/pub/dari/classranker_v1.0.ckpt.gz",
+            "https://zenodo.org/records/14618982/files/classranker_v1.0.ckpt.gz",
             "68a9855c16d7bab64b7e73e1e1442c7bf898f227ffd9a19c48ddfd2cf0646d73"
         ]
     }
