@@ -63,7 +63,7 @@ def install_and_load_model(
             print(f"Model ({name}) successfully installed in {dest_dir}")
 
     # Load checkpoint file
-    checkpoint = torch.load(model_path, map_location="cpu")
+    checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
 
     # Dynamically include model as a module
     # Make sure to check download integrity for this, otherwise major security risk
